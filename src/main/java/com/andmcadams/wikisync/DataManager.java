@@ -73,9 +73,11 @@ public class DataManager
 	private final HashMap<String, Integer> levelData = new HashMap<>();
 
 	private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-	private static final String MANIFEST_ENDPOINT = "https://sync.runescape.wiki/runelite/manifest";
-	private static final String VERSION_ENDPOINT = "https://sync.runescape.wiki/runelite/version";
-	private static final String POST_ENDPOINT = "https://sync.runescape.wiki/runelite/submit";
+//	private static final String BASE_ENDPOINT = "http://localhost:3000/runelite/";
+	private static final String BASE_ENDPOINT = "https://sync.runescape.wiki/runelite/";
+	private static final String MANIFEST_ENDPOINT = BASE_ENDPOINT + "manifest";
+	private static final String VERSION_ENDPOINT = BASE_ENDPOINT + "version";
+	private static final String POST_ENDPOINT = BASE_ENDPOINT + "submit";
 
 	public void storeVarbitChanged(int varbIndex, int varbValue)
 	{

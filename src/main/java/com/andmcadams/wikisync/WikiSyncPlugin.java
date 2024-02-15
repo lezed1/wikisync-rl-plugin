@@ -26,6 +26,9 @@ package com.andmcadams.wikisync;
 
 import com.google.common.collect.HashMultimap;
 import com.google.inject.Provides;
+
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.Setter;
@@ -46,6 +49,8 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
+import org.java_websocket.WebSocketServerFactory;
+import org.java_websocket.server.WebSocketServer;
 
 import javax.inject.Inject;
 import java.time.temporal.ChronoUnit;
@@ -88,6 +93,7 @@ public class WikiSyncPlugin extends Plugin
 
 	private final HashMultimap<Integer, Integer> varpToVarbitMapping = HashMultimap.create();
 	private final HashMap<String, Integer> skillLevelCache = new HashMap<>();
+	private WikiSyncWebSocketServer wikiSyncWebSocketServer;
 	private final int SECONDS_BETWEEN_UPLOADS = 10;
 	private final int SECONDS_BETWEEN_MANIFEST_CHECKS = 20*60;
 	private final int VARBITS_ARCHIVE_ID = 14;
@@ -112,6 +118,12 @@ public class WikiSyncPlugin extends Plugin
 		varpsToCheck = null;
 		skillLevelCache.clear();
 		dataManager.getManifest();
+
+		// until port 37776
+		InetSocketAddress inetSocketAddress = new InetSocketAddress("127.0.0.1", 37767);
+		WikiSyncWebSocketServer attemptedServer = new WikiSyncWebSocketServer(inetSocketAddress);
+		attemptedServer.start();
+		log.debug("WSWSS started on port: " + attemptedServer.getPort());
 	}
 
 	@Override
