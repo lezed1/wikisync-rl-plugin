@@ -25,10 +25,12 @@
 package com.andmcadams.wikisync;
 
 import com.google.common.collect.HashMultimap;
+import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.Setter;
@@ -38,13 +40,16 @@ import net.runelite.api.GameState;
 import net.runelite.api.IndexDataBase;
 import net.runelite.api.Skill;
 import net.runelite.api.VarbitComposition;
+import net.runelite.api.events.AccountHashChanged;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.PlayerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.RuneScapeProfileType;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -76,6 +81,9 @@ public class WikiSyncPlugin extends Plugin
 	private DataManager dataManager;
 
 	@Inject
+	private WebSocketManager webSocketManager;
+
+	@Inject
 	private WikiSyncConfig config;
 
 	@Getter
@@ -93,7 +101,6 @@ public class WikiSyncPlugin extends Plugin
 
 	private final HashMultimap<Integer, Integer> varpToVarbitMapping = HashMultimap.create();
 	private final HashMap<String, Integer> skillLevelCache = new HashMap<>();
-	private WikiSyncWebSocketServer wikiSyncWebSocketServer;
 	private final int SECONDS_BETWEEN_UPLOADS = 10;
 	private final int SECONDS_BETWEEN_MANIFEST_CHECKS = 20*60;
 	private final int VARBITS_ARCHIVE_ID = 14;
@@ -118,12 +125,7 @@ public class WikiSyncPlugin extends Plugin
 		varpsToCheck = null;
 		skillLevelCache.clear();
 		dataManager.getManifest();
-
-		// until port 37776
-		InetSocketAddress inetSocketAddress = new InetSocketAddress("127.0.0.1", 37767);
-		WikiSyncWebSocketServer attemptedServer = new WikiSyncWebSocketServer(inetSocketAddress);
-		attemptedServer.start();
-		log.debug("WSWSS started on port: " + attemptedServer.getPort());
+		webSocketManager.start();
 	}
 
 	@Override
@@ -131,6 +133,7 @@ public class WikiSyncPlugin extends Plugin
 	{
 		log.info("WikiSync stopped!");
 		dataManager.clearData();
+		webSocketManager.stop();
 	}
 
 	@Schedule(
@@ -294,4 +297,13 @@ public class WikiSyncPlugin extends Plugin
 		log.debug("WikiSync version set to deployment number " + version);
 	}
 
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged gameStateChanged) {
+		webSocketManager.onUsernameMaybeUpdated();
+	}
+
+	@Subscribe
+	public void onPlayerChanged(PlayerChanged playerChanged) {
+		webSocketManager.onUsernameMaybeUpdated();
+	}
 }
