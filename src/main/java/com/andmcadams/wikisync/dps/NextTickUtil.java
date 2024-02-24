@@ -10,23 +10,30 @@ import net.runelite.client.eventbus.Subscribe;
 public class NextTickUtil
 {
 
-	private final SynchronousQueue<Runnable> runQueue = new SynchronousQueue<>();
+	private final SynchronousQueue<Runnable> nextTickQueue = new SynchronousQueue<>();
 
 	public void queueAction(Runnable r)
 	{
-		runQueue.put(r);
+		try
+		{
+			nextTickQueue.put(r);
+		}
+		catch (InterruptedException e)
+		{
+			// ignored
+		}
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick e)
 	{
-		if (runQueue.isEmpty())
+		if (nextTickQueue.isEmpty())
 		{
 			return;
 		}
 
 		ArrayList<Runnable> thisTickActions = new ArrayList<>();
-		runQueue.drainTo(thisTickActions);
+		nextTickQueue.drainTo(thisTickActions);
 
 		thisTickActions.forEach(Runnable::run);
 	}

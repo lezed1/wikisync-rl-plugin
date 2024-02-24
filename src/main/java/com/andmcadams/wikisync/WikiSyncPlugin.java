@@ -24,14 +24,15 @@
  */
 package com.andmcadams.wikisync;
 
+import com.andmcadams.wikisync.dps.DpsDataFetcher;
+import com.andmcadams.wikisync.dps.WebSocketManager;
 import com.google.common.collect.HashMultimap;
-import com.google.gson.JsonObject;
 import com.google.inject.Provides;
-
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
+import javax.inject.Inject;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -40,10 +41,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.IndexDataBase;
 import net.runelite.api.Skill;
 import net.runelite.api.VarbitComposition;
-import net.runelite.api.events.AccountHashChanged;
-import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.PlayerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.callback.ClientThread;
@@ -54,13 +52,6 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
-import org.java_websocket.WebSocketServerFactory;
-import org.java_websocket.server.WebSocketServer;
-
-import javax.inject.Inject;
-import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.HashSet;
 
 @Slf4j
 @PluginDescriptor(
@@ -75,6 +66,9 @@ public class WikiSyncPlugin extends Plugin
 	private ClientThread clientThread;
 
 	@Inject
+	private EventBus eventBus;
+
+	@Inject
 	private ConfigManager configManager;
 
 	@Inject
@@ -82,6 +76,9 @@ public class WikiSyncPlugin extends Plugin
 
 	@Inject
 	private WebSocketManager webSocketManager;
+
+	@Inject
+	private DpsDataFetcher dpsDataFetcher;
 
 	@Inject
 	private WikiSyncConfig config;
@@ -125,7 +122,9 @@ public class WikiSyncPlugin extends Plugin
 		varpsToCheck = null;
 		skillLevelCache.clear();
 		dataManager.getManifest();
-		webSocketManager.start();
+		webSocketManager.startUp();
+		eventBus.register(webSocketManager);
+		eventBus.register(dpsDataFetcher);
 	}
 
 	@Override
@@ -133,7 +132,9 @@ public class WikiSyncPlugin extends Plugin
 	{
 		log.info("WikiSync stopped!");
 		dataManager.clearData();
-		webSocketManager.stop();
+		webSocketManager.shutDown();
+		eventBus.unregister(webSocketManager);
+		eventBus.unregister(dpsDataFetcher);
 	}
 
 	@Schedule(
@@ -297,13 +298,13 @@ public class WikiSyncPlugin extends Plugin
 		log.debug("WikiSync version set to deployment number " + version);
 	}
 
-	@Subscribe
-	public void onGameStateChanged(GameStateChanged gameStateChanged) {
-		webSocketManager.onUsernameMaybeUpdated();
-	}
-
-	@Subscribe
-	public void onPlayerChanged(PlayerChanged playerChanged) {
-		webSocketManager.onUsernameMaybeUpdated();
+	@Schedule(
+		period = 30,
+		unit = ChronoUnit.SECONDS,
+		asynchronous = true
+	)
+	public void scheduledEnsureDpsWsActive()
+	{
+		webSocketManager.ensureActive();
 	}
 }
