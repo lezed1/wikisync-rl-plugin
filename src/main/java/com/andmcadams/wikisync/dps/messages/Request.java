@@ -3,10 +3,8 @@ package com.andmcadams.wikisync.dps.messages;
 import lombok.Value;
 
 @Value
-public class PlayerChanged
+public class Request
 {
-
-	String _wsType = "PlayerChanged";
-	String name;
-
+	RequestType _wsType;
+	int sequenceId;
 }

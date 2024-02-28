@@ -305,6 +305,7 @@ public class WikiSyncPlugin extends Plugin
 	)
 	public void scheduledEnsureDpsWsActive()
 	{
+		log.info("ensuring active!!");
 		webSocketManager.ensureActive();
 	}
 }

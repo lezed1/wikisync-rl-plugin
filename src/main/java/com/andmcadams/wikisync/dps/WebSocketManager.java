@@ -1,9 +1,14 @@
 package com.andmcadams.wikisync.dps;
 
-import com.andmcadams.wikisync.dps.messages.PlayerChanged;
+import com.andmcadams.wikisync.dps.messages.GetPlayer;
+import com.andmcadams.wikisync.dps.messages.Request;
+import com.andmcadams.wikisync.dps.messages.UsernameChanged;
 import com.andmcadams.wikisync.dps.ws.WSHandler;
 import com.andmcadams.wikisync.dps.ws.WSWebsocketServer;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -49,6 +54,7 @@ public class WebSocketManager implements WSHandler
 		if (!serverActive.compareAndExchange(false, true))
 		{
 			this.server = new WSWebsocketServer(this.nextPort++, this);
+			this.server.start();
 			log.debug("WSWSS attempting to start at: {}", this.server.getAddress());
 			if (this.nextPort > PORT_MAX) {
 				this.nextPort = PORT_MIN;
@@ -57,7 +63,7 @@ public class WebSocketManager implements WSHandler
 	}
 
 	@Subscribe
-	public void onPlayerChanged(PlayerChanged e)
+	public void onUsernameChanged(UsernameChanged e)
 	{
 		if (serverActive.get())
 		{
@@ -68,13 +74,22 @@ public class WebSocketManager implements WSHandler
 	@Override
 	public void onOpen(WebSocket conn, ClientHandshake handshake)
 	{
-		conn.send(gson.toJson(new PlayerChanged(dpsDataFetcher.getPlayerName())));
+		conn.send(gson.toJson(new UsernameChanged(dpsDataFetcher.getUsername())));
 	}
 
 	@Override
 	public void onMessage(WebSocket conn, String message)
 	{
-		// todo make a router
+		Request request = gson.fromJson(message, Request.class);
+		switch (request.get_wsType()) {
+			case GetPlayer:
+				JsonObject payload = dpsDataFetcher.getLoadout();
+				conn.send(gson.toJson(new GetPlayer(request.getSequenceId(), payload)));
+				break;
+			default:
+				log.info("Got request with no handler.");
+				break;
+		}
 	}
 
 	@Override
@@ -90,6 +105,12 @@ public class WebSocketManager implements WSHandler
 				ensureActive();
 			}
 		}
+	}
+
+	@Override
+	public void onStart()
+	{
+		log.info("Started! Port: {}", server.getPort());
 	}
 
 	private void stopServer()
